@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>PK Rewards — Loyalty Draws</title>
+<meta name="description" content="PK Rewards — a real-time loyalty points and prize-draw showcase built on Firebase." />
+
+<!-- ================================================================
+  PK Rewards — PORTFOLIO PROJECT
+  A points-based (non-monetary) loyalty & prize-draw platform.
+  Users earn TOKENS through referrals / engagement actions granted
+  by an admin — tokens are never purchased with real money inside
+  this app. Wallet top-ups are arranged manually via WhatsApp, which
+  keeps this build legally simple (no in-app payment processing)
+  while still demonstrating a full real-time admin/user workflow.
+================================================================= -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: { 950:'#05080D', 900:'#0A0F16', 850:'#0E141D', 800:'#131A24', 700:'#1B2430', 600:'#293445' },
+          mist: { 400:'#8592A6', 300:'#A6B0C0', 100:'#E7ECF3' },
+          emerald: { DEFAULT:'#14E3A0', dim:'#0E9E71' },
+          gold: { DEFAULT:'#F0B90B', dim:'#B8880A' },
+          bolt: { DEFAULT:'#3E8BFF', dim:'#2C63B8' },
+          violet: { DEFAULT:'#8B6CF6' },
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"','sans-serif'],
+          body: ['"Inter"','sans-serif'],
+          mono: ['"JetBrains Mono"','monospace'],
+        },
+        boxShadow: {
+          glow: '0 0 0 1px rgba(20,227,160,0.15), 0 8px 30px -8px rgba(20,227,160,0.25)',
+          goldglow: '0 0 0 1px rgba(240,185,11,0.18), 0 8px 30px -8px rgba(240,185,11,0.3)',
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { background:#05080D; overscroll-behavior:none; }
+  body { font-family:'Inter', sans-serif; }
+  .font-display { font-family:'Space Grotesk', sans-serif; }
+  .font-mono { font-family:'JetBrains Mono', monospace; }
+
+  ::-webkit-scrollbar { width:0; height:0; }
+
+  .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .glass-strong {
+    background: rgba(10,15,22,0.85);
+    border: 1px solid rgba(255,255,255,0.09);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+
+  .app-frame { max-width: 460px; }
+  @media (min-width: 480px) {
+    .app-frame { box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06); border-radius: 32px; overflow:hidden; }
+  }
+
+  .noise::before {
+    content:''; position:absolute; inset:0; pointer-events:none; opacity:.035; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .view { display:none; }
+  .view.active { display:block; animation: viewIn .35s ease both; }
+  @keyframes viewIn { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
+
+  .modal-backdrop { display:none; }
+  .modal-backdrop.active { display:flex; }
+
+  .nav-btn { transition: color .2s ease, transform .2s ease; }
+  .nav-btn.active-nav { color:#14E3A0; }
+  .nav-btn.active-nav .nav-dot { opacity:1; transform:scale(1); }
+  .nav-dot { opacity:0; transform:scale(.4); transition: all .25s ease; }
+
+  .marquee-track { animation: marquee 22s linear infinite; }
+  .marquee-track:hover { animation-play-state: paused; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  .orbit-ring { animation: spin 14s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tab-underline { transition: transform .3s cubic-bezier(.65,0,.35,1); }
+
+  input, select { color-scheme: dark; }
+  input::placeholder { color:#5B667A; }
+
+  .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 37%, rgba(255,255,255,0.04) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+  .toast-enter { animation: toastIn .3s ease both; }
+  @keyframes toastIn { from { opacity:0; transform: translateY(-10px) scale(.98);} to { opacity:1; transform: translateY(0) scale(1);} }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  :focus-visible { outline: 2px solid #14E3A0; outline-offset: 2px; border-radius: 6px; }
+</style>
+</head>
+
+<body class="bg-ink-950 text-mist-100 min-h-screen flex justify-center">
+
+<div class="app-frame w-full relative min-h-screen bg-ink-950 flex flex-col">
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="sticky top-0 z-30 glass-strong px-5 pt-5 pb-3 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald to-bolt flex items-center justify-center shadow-glow">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9H21.5L15.8 13.2L18 20L12 15.9L6 20L8.2 13.2L2.5 9H9.5L12 2Z" fill="#05080D"/></svg>
+      </div>
+      <div>
+        <p class="font-display font-bold text-[15px] leading-none text-mist-100">PK <span class="text-emerald">Rewards</span></p>
+        <p class="text-[10px] text-mist-400 mt-0.5 tracking-wide" id="statusLine">Guest · viewing public draws</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="notifBtn" class="w-9 h-9 rounded-full glass flex items-center justify-center relative" aria-label="Notifications">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A6B0C0" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span id="notifDot" class="hidden absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gold"></span>
+      </button>
+      <button id="authTopBtn" onclick="openModal('loginModal')" class="text-xs font-semibold px-3.5 py-2 rounded-full bg-emerald text-ink-950 hover:brightness-110 transition">
+        Log in
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN ================= -->
+  <main class="flex-1 pb-28 relative">
+
+    <!-- ---------- HOME VIEW ---------- -->
+    <section id="view-home" class="view active px-5 pt-5 space-y-6">
+
+      <!-- Hero jackpot -->
+      <div class="relative glass rounded-3xl p-6 overflow-hidden noise">
+        <div class="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald/20 blur-3xl"></div>
+        <div class="absolute -bottom-20 -left-10 w-40 h-40 rounded-full bg-bolt/20 blur-3xl"></div>
+        <div class="relative flex items-center gap-5">
+          <div class="relative w-24 h-24 shrink-0">
+            <svg class="orbit-ring absolute inset-0" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(20,227,160,0.15)" stroke-width="1.5" stroke-dasharray="2 6"/>
+              <circle cx="50" cy="4" r="3" fill="#14E3A0"/>
+            </svg>
+            <svg class="absolute inset-0" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+              <circle id="jackpotArc" cx="50" cy="50" r="38" fill="none" stroke="#14E3A0" stroke-width="8" stroke-linecap="round" stroke-dasharray="238.8" stroke-dashoffset="60" transform="rotate(-90 50 50)"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center flex-col">
+              <span class="text-[9px] text-mist-400 tracking-widest">POOL</span>
+            </div>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[11px] uppercase tracking-widest text-mist-400 font-semibold">Live token pool</p>
+            <p class="font-mono font-bold text-3xl text-mist-100 tabular-nums" id="jackpotCounter">0</p>
+            <p class="text-[11px] text-emerald mt-1 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse"></span>
+              Syncing live across every device
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Winners marquee -->
+      <div class="glass rounded-2xl py-2.5 overflow-hidden">
+        <div class="flex items-center gap-3 px-4 mb-1.5">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-gold">● Live winners</span>
+        </div>
+        <div class="relative overflow-hidden">
+          <div id="winnersMarquee" class="marquee-track flex gap-6 whitespace-nowrap px-4 text-sm text-mist-300 font-mono">
+            <span class="text-mist-500 text-xs">Loading recent winners…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active campaigns -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-display font-bold text-lg text-mist-100">Active draws</h2>
+          <button onclick="switchView('campaigns')" class="text-xs text-emerald font-semibold">See all</button>
+        </div>
+        <div id="homeCampaignsGrid" class="grid grid-cols-1 gap-3.5">
+          <div class="skeleton h-32 rounded-2xl"></div>
+          <div class="skeleton h-32 rounded-2xl"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ---------- CAMPAIGNS VIEW ---------- -->
+    <section id="view-campaigns" class="view px-5 pt-5 space-y-4">
+      <h2 class="font-display font-bold text-xl text-mist-100">All draws</h2>
+      <p class="text-xs text-mist-400 -mt-2">Enter with tokens from your wallet. Every draw uses a cryptographically random pick, broadcast live.</p>
+      <div id="campaignsGridFull" class="grid grid-cols-1 gap-3.5">
+        <div class="skeleton h-32 rounded-2xl"></div>
+        <div class="skeleton h-32 rounded-2xl"></div>
+        <div class="skeleton h-32 rounded-2xl"></div>
+      </div>
+    </section>
+
+    <!-- ---------- WALLET VIEW (auth required) ---------- -->
+    <section id="view-wallet" class="view px-5 pt-5 space-y-5">
+      <div id="walletGate" class="hidden text-center pt-16 px-4">
+        <div class="w-14 h-14 rounded-2xl glass flex items-center justify-center mx-auto mb-4">
+          <svg width="22" height="22" fill="none" stroke="#8592A6" stroke-width="1.6" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+        </div>
+        <p class="font-display font-semibold text-mist-100">Log in to view your wallet</p>
+        <p class="text-xs text-mist-400 mt-1.5 mb-5">Track your tokens, entries, and history once you're signed in.</p>
+        <button onclick="openModal('loginModal')" class="px-5 py-2.5 rounded-full bg-emerald text-ink-950 text-sm font-semibold">Log in</button>
+      </div>
+
+      <div id="walletContent" class="hidden space-y-5">
+        <div class="glass rounded-3xl p-5 relative overflow-hidden noise">
+          <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gold/15 blur-3xl"></div>
+          <p class="text-[11px] uppercase tracking-widest text-mist-400 font-semibold">Token balance</p>
+          <p class="font-mono font-bold text-4xl text-gold mt-1" id="walletBalance">0</p>
+          <div class="flex gap-2.5 mt-4">
+            <button onclick="openModal('topupModal')" class="flex-1 py-2.5 rounded-xl bg-gold text-ink-950 text-sm font-bold">+ Top up</button>
+            <button onclick="switchView('campaigns')" class="flex-1 py-2.5 rounded-xl glass text-sm font-semibold text-mist-100">Enter a draw</button>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-display font-semibold text-sm text-mist-200 mb-2.5">Active tickets</h3>
+          <div id="myTickets" class="space-y-2.5">
+            <p class="text-xs text-mist-500">No active tickets yet.</p>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="font-display font-semibold text-sm text-mist-200 mb-2.5">Transaction history</h3>
+          <div id="myTransactions" class="space-y-2">
+            <p class="text-xs text-mist-500">No transactions yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PROFILE VIEW ---------- -->
+    <section id="view-profile" class="view px-5 pt-5 space-y-5">
+      <div id="profileGate" class="hidden text-center pt-16 px-4">
+        <p class="font-display font-semibold text-mist-100">Log in to view your profile</p>
+        <button onclick="openModal('loginModal')" class="mt-4 px-5 py-2.5 rounded-full bg-emerald text-ink-950 text-sm font-semibold">Log in</button>
+      </div>
+
+      <div id="profileContent" class="hidden space-y-5">
+        <div class="glass rounded-2xl p-5 flex items-center gap-4">
+          <div class="w-14 h-14 rounded-full bg-gradient-to-br from-violet to-bolt flex items-center justify-center font-display font-bold text-lg" id="profileAvatar">–</div>
+          <div class="min-w-0">
+            <p class="font-display font-semibold text-mist-100 truncate" id="profileName">–</p>
+            <p class="text-xs text-mist-400 truncate" id="profileEmail">–</p>
+            <span id="profileRoleBadge" class="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald/15 text-emerald"></span>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
+          <div class="p-4 flex items-center justify-between">
+            <span class="text-sm text-mist-300">Phone number</span>
+            <span class="text-sm text-mist-100 font-mono" id="profilePhone">–</span>
+          </div>
+          <div class="p-4 flex items-center justify-between">
+            <span class="text-sm text-mist-300">Account status</span>
+            <span class="text-sm font-semibold" id="profileStatus">–</span>
+          </div>
+        </div>
+
+        <button onclick="openWhatsApp('Hi, I need help with my PK Rewards account.')" class="w-full glass rounded-2xl p-4 flex items-center gap-3 text-left">
+          <div class="w-9 h-9 rounded-full bg-[#25D366]/15 flex items-center justify-center shrink-0">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="#25D366"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.79.47 3.47 1.28 4.93L2 22l5.29-1.38a9.87 9.87 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.92C21.96 6.45 17.5 2 12.04 2zm0 18.02h-.01a8.2 8.2 0 01-4.18-1.15l-.3-.18-3.13.82.84-3.05-.2-.31a8.2 8.2 0 01-1.26-4.34c0-4.53 3.7-8.22 8.24-8.22 4.53 0 8.22 3.69 8.22 8.22 0 4.54-3.7 8.21-8.22 8.21zm4.5-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.4-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.16.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.25-.87.85-.87 2.08 0 1.22.89 2.4 1.02 2.57.12.16 1.75 2.67 4.24 3.74.59.26 1.06.41 1.42.52.6.19 1.14.17 1.57.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-mist-100">Chat with support</p>
+            <p class="text-[11px] text-mist-400">WhatsApp · usually replies in minutes</p>
+          </div>
+        </button>
+
+        <button id="adminEntryBtn" onclick="switchView('admin')" class="hidden w-full glass rounded-2xl p-4 flex items-center gap-3 text-left border-gold/30">
+          <div class="w-9 h-9 rounded-full bg-gold/15 flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" stroke-width="2"><path d="M12 2l3 6 6 .9-4.5 4.3 1 6L12 16l-5.5 3.2 1-6L3 8.9 9 8z"/></svg>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-mist-100">Admin console</p>
+            <p class="text-[11px] text-mist-400">Approvals, draws & campaigns</p>
+          </div>
+        </button>
+
+        <button onclick="handleLogout()" class="w-full py-3 rounded-2xl text-sm font-semibold text-red-400 border border-red-400/20 bg-red-400/[0.06]">
+          Log out
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------- ADMIN VIEW (role gated) ---------- -->
+    <section id="view-admin" class="view px-5 pt-5 space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold text-xl text-mist-100">Admin console</h2>
+        <span class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-gold/15 text-gold">Restricted</span>
+      </div>
+
+      <!-- admin tabs -->
+      <div class="glass rounded-full p-1 flex text-xs font-semibold text-mist-400 relative">
+        <button data-atab="queue" class="admin-tab flex-1 py-2 rounded-full relative z-10 text-center">Approvals</button>
+        <button data-atab="campaigns" class="admin-tab flex-1 py-2 rounded-full relative z-10 text-center">Campaigns</button>
+        <button data-atab="draw" class="admin-tab flex-1 py-2 rounded-full relative z-10 text-center">Draw engine</button>
+      </div>
+
+      <!-- Approvals -->
+      <div id="admin-queue" class="admin-pane space-y-3">
+        <p class="text-xs text-mist-400">Pending registrations awaiting verification.</p>
+        <div id="pendingUsersList" class="space-y-2.5">
+          <p class="text-xs text-mist-500">No pending users.</p>
+        </div>
+      </div>
+
+      <!-- Campaigns CRUD -->
+      <div id="admin-campaigns" class="admin-pane space-y-3 hidden">
+        <button onclick="openCampaignForm()" class="w-full py-2.5 rounded-xl bg-bolt text-white text-sm font-semibold">+ New campaign</button>
+        <div id="adminCampaignsList" class="space-y-2.5">
+          <p class="text-xs text-mist-500">No campaigns yet.</p>
+        </div>
+      </div>
+
+      <!-- Draw engine -->
+      <div id="admin-draw" class="admin-pane space-y-3 hidden">
+        <p class="text-xs text-mist-400">Pick a campaign to run a cryptographically secure live draw. The winning ticket is broadcast instantly to every connected device.</p>
+        <select id="drawCampaignSelect" class="w-full glass rounded-xl px-3.5 py-3 text-sm text-mist-100 bg-transparent"></select>
+        <button onclick="runLiveDraw()" class="w-full py-3 rounded-xl bg-gradient-to-r from-gold to-emerald text-ink-950 font-bold text-sm">
+          🎲 Run live draw
+        </button>
+        <div id="drawResult" class="hidden glass rounded-2xl p-4 text-center"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= WHATSAPP FAB ================= -->
+  <button id="waFab" onclick="openWhatsApp('Hi! I have a question about PK Rewards.')"
+    class="fixed z-30 bottom-24 right-1/2 translate-x-[178px] w-13 h-13 rounded-full bg-[#25D366] shadow-lg shadow-[#25D366]/30 flex items-center justify-center hover:scale-105 active:scale-95 transition"
+    style="width:52px;height:52px;" aria-label="Chat on WhatsApp">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.79.47 3.47 1.28 4.93L2 22l5.29-1.38a9.87 9.87 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.92C21.96 6.45 17.5 2 12.04 2zm0 18.02h-.01a8.2 8.2 0 01-4.18-1.15l-.3-.18-3.13.82.84-3.05-.2-.31a8.2 8.2 0 01-1.26-4.34c0-4.53 3.7-8.22 8.24-8.22 4.53 0 8.22 3.69 8.22 8.22 0 4.54-3.7 8.21-8.22 8.21zm4.5-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.4-.12-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.98-1.22-.73-.65-1.23-1.46-1.37-1.71-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.16.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.25-.87.85-.87 2.08 0 1.22.89 2.4 1.02 2.57.12.16 1.75 2.67 4.24 3.74.59.26 1.06.41 1.42.52.6.19 1.14.17 1.57.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28z"/></svg>
+  </button>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full app-frame z-30">
+    <div class="glass-strong mx-4 mb-4 rounded-3xl px-2 py-2.5 flex items-center justify-around">
+      <button data-nav="home" class="nav-btn active-nav flex flex-col items-center gap-1 px-4 py-1.5 text-mist-400">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+        <span class="nav-dot w-1 h-1 rounded-full bg-emerald"></span>
+      </button>
+      <button data-nav="campaigns" class="nav-btn flex flex-col items-center gap-1 px-4 py-1.5 text-mist-400">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 4v5"/></svg>
+        <span class="nav-dot w-1 h-1 rounded-full bg-emerald"></span>
+      </button>
+      <button data-nav="wallet" class="nav-btn flex flex-col items-center gap-1 px-4 py-1.5 text-mist-400">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.3" fill="currentColor" stroke="none"/></svg>
+        <span class="nav-dot w-1 h-1 rounded-full bg-emerald"></span>
+      </button>
+      <button data-nav="profile" class="nav-btn flex flex-col items-center gap-1 px-4 py-1.5 text-mist-400">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.5-4 4.5-6 7.5-6s6 2 7.5 6"/></svg>
+        <span class="nav-dot w-1 h-1 rounded-full bg-emerald"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ================= TOAST ================= -->
+  <div id="toastHost" class="fixed top-3 left-1/2 -translate-x-1/2 z-[60] w-[92%] app-frame flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ================= AUTH MODALS ================= -->
+
+  <!-- Login -->
+  <div id="loginModal" class="modal-backdrop fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center px-5">
+    <div class="glass-strong w-full max-w-sm rounded-3xl p-6 relative">
+      <button onclick="closeModal('loginModal')" class="absolute top-4 right-4 text-mist-400" aria-label="Close">✕</button>
+      <h3 class="font-display font-bold text-xl text-mist-100">Welcome back</h3>
+      <p class="text-xs text-mist-400 mt-1 mb-5">Log in to view your wallet and entries.</p>
+      <form id="loginForm" class="space-y-3" onsubmit="return false;">
+        <input required type="email" id="loginEmail" placeholder="Email address" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+        <input required type="password" id="loginPassword" placeholder="Password" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+        <button onclick="handleLogin()" type="submit" class="w-full py-3 rounded-xl bg-emerald text-ink-950 font-bold text-sm">Log in</button>
+      </form>
+      <div class="flex items-center justify-between mt-4 text-xs">
+        <button onclick="switchAuthModal('forgotModal')" class="text-mist-400">Forgot password?</button>
+        <button onclick="switchAuthModal('signupModal')" class="text-emerald font-semibold">Create account</button>
+      </div>
+      <p id="loginError" class="hidden text-xs text-red-400 mt-3"></p>
+    </div>
+  </div>
+
+  <!-- Signup -->
+  <div id="signupModal" class="modal-backdrop fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center px-5">
+    <div class="glass-strong w-full max-w-sm rounded-3xl p-6 relative max-h-[88vh] overflow-y-auto">
+      <button onclick="closeModal('signupModal')" class="absolute top-4 right-4 text-mist-400" aria-label="Close">✕</button>
+      <h3 class="font-display font-bold text-xl text-mist-100">Create your account</h3>
+      <p class="text-xs text-mist-400 mt-1 mb-4">New accounts need a quick admin verification before login.</p>
+
+      <!-- tabs -->
+      <div class="glass rounded-full p-1 flex text-xs font-semibold text-mist-400 mb-4">
+        <button data-stab="account" class="signup-tab flex-1 py-2 rounded-full text-center bg-emerald text-ink-950">Account</button>
+        <button data-stab="contact" class="signup-tab flex-1 py-2 rounded-full text-center">Contact</button>
+      </div>
+
+      <form id="signupForm" onsubmit="return false;">
+        <div id="signup-pane-account" class="signup-pane space-y-3">
+          <input required id="suName" placeholder="Full name" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+          <input required type="email" id="suEmail" placeholder="Email address" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+          <input required type="password" id="suPassword" placeholder="Password (min 6 characters)" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+          <button type="button" onclick="switchSignupTab('contact')" class="w-full py-3 rounded-xl glass text-sm font-semibold text-mist-100">Continue</button>
+        </div>
+        <div id="signup-pane-contact" class="signup-pane space-y-3 hidden">
+          <input required type="tel" id="suPhone" placeholder="Phone number" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+          <label class="flex items-start gap-2 text-[11px] text-mist-400 px-1">
+            <input required type="checkbox" class="mt-0.5" />
+            I understand tokens are loyalty points, not currency, and this is a demo platform.
+          </label>
+          <button onclick="handleSignup()" type="submit" class="w-full py-3 rounded-xl bg-emerald text-ink-950 font-bold text-sm">Create account</button>
+          <button type="button" onclick="switchSignupTab('account')" class="w-full text-xs text-mist-400 py-1">← Back</button>
+        </div>
+      </form>
+      <p id="signupError" class="hidden text-xs text-red-400 mt-3"></p>
+    </div>
+  </div>
+
+  <!-- Forgot password -->
+  <div id="forgotModal" class="modal-backdrop fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center px-5">
+    <div class="glass-strong w-full max-w-sm rounded-3xl p-6 relative">
+      <button onclick="closeModal('forgotModal')" class="absolute top-4 right-4 text-mist-400" aria-label="Close">✕</button>
+      <h3 class="font-display font-bold text-xl text-mist-100">Reset password</h3>
+      <p class="text-xs text-mist-400 mt-1 mb-5">We'll email you a secure reset link.</p>
+      <input required type="email" id="forgotEmail" placeholder="Email address" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+      <button onclick="handleForgotPassword()" class="w-full py-3 rounded-xl bg-emerald text-ink-950 font-bold text-sm mt-3">Send reset link</button>
+      <button onclick="switchAuthModal('loginModal')" class="w-full text-xs text-mist-400 py-3">← Back to log in</button>
+      <p id="forgotMsg" class="hidden text-xs mt-1"></p>
+    </div>
+  </div>
+
+  <!-- Top up (WhatsApp-arranged, no in-app payment) -->
+  <div id="topupModal" class="modal-backdrop fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center px-5">
+    <div class="glass-strong w-full max-w-sm rounded-3xl p-6 relative">
+      <button onclick="closeModal('topupModal')" class="absolute top-4 right-4 text-mist-400" aria-label="Close">✕</button>
+      <h3 class="font-display font-bold text-xl text-mist-100">Top up tokens</h3>
+      <p class="text-xs text-mist-400 mt-2 mb-4 leading-relaxed">
+        This demo doesn't process real payments in-app. Message our team on WhatsApp with the amount you'd like — an admin credits your wallet manually and it updates on your screen in real time.
+      </p>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="waTopup(100)" class="glass rounded-xl py-3 text-sm font-mono font-semibold">100</button>
+        <button onclick="waTopup(500)" class="glass rounded-xl py-3 text-sm font-mono font-semibold">500</button>
+        <button onclick="waTopup(1000)" class="glass rounded-xl py-3 text-sm font-mono font-semibold">1000</button>
+      </div>
+      <button onclick="waTopup(null)" class="w-full py-3 rounded-xl bg-[#25D366] text-white font-bold text-sm flex items-center justify-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.79.47 3.47 1.28 4.93L2 22l5.29-1.38a9.87 9.87 0 004.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.92C21.96 6.45 17.5 2 12.04 2z"/></svg>
+        Message on WhatsApp
+      </button>
+    </div>
+  </div>
+
+  <!-- Campaign form (admin) -->
+  <div id="campaignFormModal" class="modal-backdrop fixed inset-0 z-50 bg-black/70 backdrop-blur-sm items-center justify-center px-5">
+    <div class="glass-strong w-full max-w-sm rounded-3xl p-6 relative max-h-[88vh] overflow-y-auto">
+      <button onclick="closeModal('campaignFormModal')" class="absolute top-4 right-4 text-mist-400" aria-label="Close">✕</button>
+      <h3 class="font-display font-bold text-xl text-mist-100" id="campaignFormTitle">New campaign</h3>
+      <div class="space-y-3 mt-4">
+        <input type="hidden" id="cfId" />
+        <input id="cfTitle" placeholder="Campaign title" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+        <input id="cfTokenPrice" type="number" min="1" placeholder="Token price per entry" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+        <input id="cfSlots" type="number" min="1" placeholder="Total ticket slots" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent placeholder:text-mist-500" />
+        <label class="text-[11px] text-mist-400 px-1">Draw date & time</label>
+        <input id="cfDrawTime" type="datetime-local" class="w-full glass rounded-xl px-4 py-3 text-sm bg-transparent" />
+        <button onclick="saveCampaign()" class="w-full py-3 rounded-xl bg-bolt text-white font-bold text-sm">Save campaign</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+  FIREBASE + APP LOGIC
+  Fill in firebaseConfig below with your own project's keys.
+  Recommended Firestore collections:
+    users/{uid}        -> { name, email, phone, role: 'User'|'Admin', status: 'Pending'|'Approved'|'Banned', tokens, createdAt }
+    campaigns/{id}      -> { title, tokenPrice, totalSlots, filledSlots, drawTime, status: 'active'|'drawn', createdAt }
+    tickets/{id}        -> { campaignId, userId, ticketNumber, createdAt }
+    winners/{id}        -> { campaignId, campaignTitle, userId, userName, ticketNumber, drawnAt }
+    transactions/{id}   -> { userId, type: 'topup'|'entry', amount, note, createdAt }
+
+  Suggested Firestore security rules (starting point — refine before
+  going live): users can read public campaigns/winners; only the
+  authenticated owner can read their own user/ticket/transaction docs;
+  writes to role/status/tokens fields are restricted to requests where
+  request.auth.token matches an admin custom claim or an `role=="Admin"`
+  check against the caller's own user doc.
+============================================================= -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+    signInWithEmailAndPassword, signOut, sendPasswordResetEmail
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc,
+    collection, query, where, orderBy, limit, onSnapshot, serverTimestamp,
+    runTransaction
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ---------------- CONFIG: replace with your Firebase project ----------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyAUYDf8_iMIblIcPPxPinsqbkXoRzKPlXM",
+    authDomain: "digiskills-help-desk.firebaseapp.com",
+    projectId: "digiskills-help-desk",
+    storageBucket: "digiskills-help-desk.firebasestorage.app",
+    messagingSenderId: "722394740541",
+    appId: "1:722394740541:web:fe2ec4d37c61e6b30e3754",
+    measurementId: "G-P1NFSPB5DB"
+  };
+  const WHATSAPP_NUMBER = "911234567890"; // country code + number, no + or spaces
+  // ------------------------------------------------------------------------
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let currentUser = null;
+  let currentUserDoc = null;
+  let campaignsCache = [];
+
+  // ---------- helpers exposed to inline HTML handlers ----------
+  window.openModal = (id) => { document.getElementById(id).classList.add('active'); };
+  window.closeModal = (id) => { document.getElementById(id).classList.remove('active'); document.getElementById(id).querySelectorAll('.text-red-400,#forgotMsg').forEach(e=>e.classList.add('hidden')); };
+  window.switchAuthModal = (id) => { ['loginModal','signupModal','forgotModal'].forEach(m=>closeModal(m)); openModal(id); };
+
+  window.switchSignupTab = (tab) => {
+    document.querySelectorAll('.signup-pane').forEach(p=>p.classList.add('hidden'));
+    document.getElementById('signup-pane-'+tab).classList.remove('hidden');
+    document.querySelectorAll('.signup-tab').forEach(t=>{
+      const active = t.dataset.stab === tab;
+      t.classList.toggle('bg-emerald', active);
+      t.classList.toggle('text-ink-950', active);
+    });
+  };
+
+  window.openWhatsApp = (msg) => {
+    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+  window.waTopup = (amount) => {
+    closeModal('topupModal');
+    const name = currentUserDoc?.name || 'there';
+    const msg = amount
+      ? `Hi, I'm ${name}. I'd like to top up ${amount} tokens on my PK Rewards wallet.`
+      : `Hi, I'm ${name}. I'd like to top up my PK Rewards wallet — how does it work?`;
+    openWhatsApp(msg);
+  };
+
+  function toast(msg, kind='info') {
+    const host = document.getElementById('toastHost');
+    const el = document.createElement('div');
+    const colors = { info:'border-white/10 text-mist-100', error:'border-red-400/30 text-red-300', success:'border-emerald/30 text-emerald' };
+    el.className = `toast-enter glass-strong rounded-xl px-4 py-3 text-sm border ${colors[kind]||colors.info} pointer-events-auto`;
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(), 300); }, 3200);
+  }
+  window.toast = toast;
+
+  // ---------------- NAVIGATION ----------------
+  const gatedViews = ['wallet','profile'];
+  window.switchView = (name) => {
+    if ((name==='wallet'||name==='profile') && !currentUser) { openModal('loginModal'); return; }
+    if (name==='admin' && (!currentUserDoc || currentUserDoc.role!=='Admin')) { toast('Admins only.', 'error'); switchView('home'); return; }
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active-nav', b.dataset.nav===name));
+  };
+  document.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchView(btn.dataset.nav));
+  });
+
+  // ---------------- AUTH ACTIONS ----------------
+  window.handleSignup = async () => {
+    const name = document.getElementById('suName').value.trim();
+    const email = document.getElementById('suEmail').value.trim();
+    const password = document.getElementById('suPassword').value;
+    const phone = document.getElementById('suPhone').value.trim();
+    const errEl = document.getElementById('signupError');
+    errEl.classList.add('hidden');
+    if (!name || !email || !password || !phone) { errEl.textContent='Please fill in every field.'; errEl.classList.remove('hidden'); return; }
+    if (password.length < 6) { errEl.textContent='Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        name, email, phone, role: 'User', status: 'Pending', tokens: 0, createdAt: serverTimestamp()
+      });
+      await signOut(auth);
+      closeModal('signupModal');
+      toast('Account created. Please wait for admin verification before logging in.', 'success');
+    } catch (e) {
+      errEl.textContent = friendlyError(e); errEl.classList.remove('hidden');
+    }
+  };
+
+  window.handleLogin = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const snap = await getDoc(doc(db, 'users', cred.user.uid));
+      const udata = snap.exists() ? snap.data() : null;
+      if (!udata || udata.status === 'Pending') {
+        await signOut(auth);
+        errEl.textContent = 'Your account is currently awaiting Admin verification.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (udata.status === 'Banned') {
+        await signOut(auth);
+        errEl.textContent = 'This account has been suspended. Contact support on WhatsApp.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      closeModal('loginModal');
+      toast(`Welcome back, ${udata.name.split(' ')[0]}.`, 'success');
+    } catch (e) {
+      errEl.textContent = friendlyError(e); errEl.classList.remove('hidden');
+    }
+  };
+
+  window.handleForgotPassword = async () => {
+    const email = document.getElementById('forgotEmail').value.trim();
+    const msgEl = document.getElementById('forgotMsg');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      msgEl.textContent = 'Reset link sent — check your inbox.'; msgEl.className='text-xs text-emerald mt-2';
+    } catch (e) {
+      msgEl.textContent = friendlyError(e); msgEl.className='text-xs text-red-400 mt-2';
+    }
+    msgEl.classList.remove('hidden');
+  };
+
+  window.handleLogout = async () => { await signOut(auth); switchView('home'); toast('Logged out.'); };
+
+  function friendlyError(e) {
+    const map = {
+      'auth/email-already-in-use':'That email is already registered.',
+      'auth/invalid-email':'Enter a valid email address.',
+      'auth/weak-password':'Password is too weak (min 6 characters).',
+      'auth/invalid-credential':'Incorrect email or password.',
+      'auth/wrong-password':'Incorrect email or password.',
+      'auth/user-not-found':'No account found with that email.',
+      'auth/too-many-requests':'Too many attempts — please wait a moment.'
+    };
+    return map[e.code] || 'Something went wrong. Please try again.';
+  }
+
+  // ---------------- AUTH STATE ----------------
+  let unsubUserDoc = null, unsubTickets = null, unsubTx = null;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (unsubUserDoc) unsubUserDoc();
+    if (unsubTickets) unsubTickets();
+    if (unsubTx) unsubTx();
+    currentUser = user;
+
+    if (!user) {
+      currentUserDoc = null;
+      document.getElementById('authTopBtn').textContent = 'Log in';
+      document.getElementById('authTopBtn').setAttribute('onclick', "openModal('loginModal')");
+      document.getElementById('statusLine').textContent = 'Guest · viewing public draws';
+      document.getElementById('walletGate').classList.remove('hidden');
+      document.getElementById('walletContent').classList.add('hidden');
+      document.getElementById('profileGate').classList.remove('hidden');
+      document.getElementById('profileContent').classList.add('hidden');
+      document.getElementById('adminEntryBtn').classList.add('hidden');
+      return;
+    }
+
+    unsubUserDoc = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (!snap.exists()) return;
+      currentUserDoc = snap.data();
+      renderProfile();
+
+      if (currentUserDoc.status === 'Pending') {
+        signOut(auth);
+        toast('Your account is currently awaiting Admin verification.', 'error');
+        return;
+      }
+      if (currentUserDoc.status === 'Banned') {
+        signOut(auth);
+        toast('This account has been suspended.', 'error');
+        return;
+      }
+
+      document.getElementById('authTopBtn').textContent = 'Profile';
+      document.getElementById('authTopBtn').setAttribute('onclick', "switchView('profile')");
+      document.getElementById('statusLine').textContent = `${currentUserDoc.name.split(' ')[0]} · ${currentUserDoc.role}`;
+      document.getElementById('walletGate').classList.add('hidden');
+      document.getElementById('walletContent').classList.remove('hidden');
+      document.getElementById('profileGate').classList.add('hidden');
+      document.getElementById('profileContent').classList.remove('hidden');
+      document.getElementById('walletBalance').textContent = (currentUserDoc.tokens ?? 0).toLocaleString();
+      document.getElementById('adminEntryBtn').classList.toggle('hidden', currentUserDoc.role !== 'Admin');
+
+      if (currentUserDoc.role === 'Admin') loadAdminData();
+    });
+
+    unsubTickets = onSnapshot(query(collection(db,'tickets'), where('userId','==', user.uid)), (snap)=>{
+      const host = document.getElementById('myTickets');
+      if (snap.empty) { host.innerHTML = '<p class="text-xs text-mist-500">No active tickets yet.</p>'; return; }
+      host.innerHTML = snap.docs.map(d=>{
+        const t = d.data();
+        const camp = campaignsCache.find(c=>c.id===t.campaignId);
+        return `<div class="glass rounded-xl p-3.5 flex items-center justify-between">
+          <div><p class="text-sm font-semibold text-mist-100">${escapeHtml(camp?.title || 'Campaign')}</p>
+          <p class="text-[11px] text-mist-400 font-mono">Ticket #${t.ticketNumber}</p></div>
+          <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-bolt/15 text-bolt">Active</span>
+        </div>`;
+      }).join('');
+    });
+
+    unsubTx = onSnapshot(query(collection(db,'transactions'), where('userId','==', user.uid), orderBy('createdAt','desc'), limit(20)), (snap)=>{
+      const host = document.getElementById('myTransactions');
+      if (snap.empty) { host.innerHTML = '<p class="text-xs text-mist-500">No transactions yet.</p>'; return; }
+      host.innerHTML = snap.docs.map(d=>{
+        const t = d.data();
+        const positive = t.type === 'topup';
+        return `<div class="glass rounded-xl p-3 flex items-center justify-between text-sm">
+          <span class="text-mist-300">${escapeHtml(t.note || t.type)}</span>
+          <span class="font-mono font-semibold ${positive?'text-emerald':'text-mist-300'}">${positive?'+':'-'}${t.amount}</span>
+        </div>`;
+      }).join('');
+    });
+  });
+
+  function renderProfile() {
+    if (!currentUserDoc) return;
+    document.getElementById('profileAvatar').textContent = currentUserDoc.name.slice(0,1).toUpperCase();
+    document.getElementById('profileName').textContent = currentUserDoc.name;
+    document.getElementById('profileEmail').textContent = currentUserDoc.email;
+    document.getElementById('profilePhone').textContent = currentUserDoc.phone || '–';
+    const roleBadge = document.getElementById('profileRoleBadge');
+    roleBadge.textContent = currentUserDoc.role;
+    const statusEl = document.getElementById('profileStatus');
+    statusEl.textContent = currentUserDoc.status;
+    statusEl.className = currentUserDoc.status==='Approved' ? 'text-sm font-semibold text-emerald' : 'text-sm font-semibold text-gold';
+  }
+
+  // ---------------- CAMPAIGNS (public, live) ----------------
+  onSnapshot(query(collection(db,'campaigns'), where('status','==','active'), orderBy('drawTime','asc')), (snap)=>{
+    campaignsCache = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderCampaignCards('homeCampaignsGrid', campaignsCache.slice(0,3));
+    renderCampaignCards('campaignsGridFull', campaignsCache);
+    const jackpot = campaignsCache.reduce((sum,c)=> sum + (c.tokenPrice||0) * (c.filledSlots||0), 0);
+    animateCounter('jackpotCounter', jackpot);
+  });
+
+  function renderCampaignCards(hostId, list) {
+    const host = document.getElementById(hostId);
+    if (!list.length) { host.innerHTML = '<p class="text-xs text-mist-500 py-6 text-center">No active draws right now — check back soon.</p>'; return; }
+    host.innerHTML = list.map(c=>{
+      const pct = c.totalSlots ? Math.min(100, Math.round((c.filledSlots||0)/c.totalSlots*100)) : 0;
+      const remaining = Math.max(0, (c.totalSlots||0) - (c.filledSlots||0));
+      return `<div class="glass rounded-2xl p-4">
+        <div class="flex items-start justify-between mb-2">
+          <p class="font-display font-semibold text-mist-100 text-[15px]">${escapeHtml(c.title)}</p>
+          <span class="font-mono text-xs text-gold font-semibold shrink-0">${c.tokenPrice} tok</span>
+        </div>
+        <div class="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden mb-2">
+          <div class="h-full bg-gradient-to-r from-emerald to-bolt" style="width:${pct}%"></div>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-mist-400">
+          <span>${remaining} slots left</span>
+          <span id="cd-${c.id}" class="font-mono">--:--:--</span>
+        </div>
+        <button onclick="enterCampaign('${c.id}')" class="w-full mt-3 py-2.5 rounded-xl bg-emerald/15 text-emerald text-sm font-semibold hover:bg-emerald/25 transition">Enter draw</button>
+      </div>`;
+    }).join('');
+    list.forEach(c => startCountdown(c.id, c.drawTime));
+  }
+
+  const countdownTimers = {};
+  function startCountdown(id, drawTime) {
+    if (countdownTimers[id]) clearInterval(countdownTimers[id]);
+    const target = drawTime?.toDate ? drawTime.toDate() : new Date(drawTime);
+    const el = () => document.getElementById('cd-'+id);
+    countdownTimers[id] = setInterval(()=>{
+      const node = el(); if (!node) { clearInterval(countdownTimers[id]); return; }
+      const diff = target - new Date();
+      if (diff <= 0) { node.textContent = 'Drawing…'; clearInterval(countdownTimers[id]); return; }
+      const h = String(Math.floor(diff/3.6e6)).padStart(2,'0');
+      const m = String(Math.floor((diff%3.6e6)/6e4)).padStart(2,'0');
+      const s = String(Math.floor((diff%6e4)/1000)).padStart(2,'0');
+      node.textContent = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+
+  function animateCounter(id, target) {
+    const el = document.getElementById(id);
+    const start = parseInt(el.textContent.replace(/,/g,'')) || 0;
+    const dur = 700; const t0 = performance.now();
+    function step(t) {
+      const p = Math.min(1, (t-t0)/dur);
+      el.textContent = Math.round(start + (target-start)*p).toLocaleString();
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ---------------- WINNERS MARQUEE ----------------
+  onSnapshot(query(collection(db,'winners'), orderBy('drawnAt','desc'), limit(12)), (snap)=>{
+    const host = document.getElementById('winnersMarquee');
+    if (snap.empty) { host.innerHTML = '<span class="text-mist-500 text-xs">No draws yet — be the first winner!</span>'; return; }
+    const items = snap.docs.map(d=>{
+      const w = d.data();
+      return `<span>🏆 ${escapeHtml(w.userName)} won <span class="text-gold">${escapeHtml(w.campaignTitle)}</span> · #${w.ticketNumber}</span>`;
+    });
+    host.innerHTML = items.join('') + items.join(''); // duplicate for seamless loop
+  });
+
+  // ---------------- ENTER CAMPAIGN ----------------
+  window.enterCampaign = async (campaignId) => {
+    if (!currentUser || !currentUserDoc) { openModal('loginModal'); return; }
+    const campRef = doc(db, 'campaigns', campaignId);
+    try {
+      await runTransaction(db, async (tx) => {
+        const campSnap = await tx.get(campRef);
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await tx.get(userRef);
+        if (!campSnap.exists()) throw new Error('This campaign no longer exists.');
+        const camp = campSnap.data();
+        const user = userSnap.data();
+        if ((camp.filledSlots||0) >= camp.totalSlots) throw new Error('This draw is full.');
+        if ((user.tokens||0) < camp.tokenPrice) throw new Error('Not enough tokens — top up your wallet first.');
+
+        const ticketNumber = `${campaignId.slice(0,4).toUpperCase()}-${String((camp.filledSlots||0)+1).padStart(4,'0')}`;
+        tx.update(campRef, { filledSlots: (camp.filledSlots||0)+1 });
+        tx.update(userRef, { tokens: (user.tokens||0) - camp.tokenPrice });
+
+        const ticketRef = doc(collection(db,'tickets'));
+        tx.set(ticketRef, { campaignId, userId: currentUser.uid, ticketNumber, createdAt: serverTimestamp() });
+
+        const txRef = doc(collection(db,'transactions'));
+        tx.set(txRef, { userId: currentUser.uid, type:'entry', amount: camp.tokenPrice, note: `Entered ${camp.title}`, createdAt: serverTimestamp() });
+      });
+      toast('Entry confirmed — good luck!', 'success');
+    } catch (e) {
+      toast(e.message || 'Could not complete entry.', 'error');
+    }
+  };
+
+  // ================= ADMIN =================
+  document.querySelectorAll('.admin-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.admin-pane').forEach(p=>p.classList.add('hidden'));
+      document.getElementById('admin-'+tab.dataset.atab).classList.remove('hidden');
+      document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('text-emerald', t===tab));
+    });
+  });
+
+  let adminUnsubs = [];
+  function loadAdminData() {
+    adminUnsubs.forEach(u=>u());
+    adminUnsubs = [];
+
+    adminUnsubs.push(onSnapshot(query(collection(db,'users'), where('status','==','Pending')), (snap)=>{
+      const host = document.getElementById('pendingUsersList');
+      if (snap.empty) { host.innerHTML = '<p class="text-xs text-mist-500">No pending users.</p>'; return; }
+      host.innerHTML = snap.docs.map(d=>{
+        const u = d.data();
+        return `<div class="glass rounded-xl p-3.5">
+          <p class="text-sm font-semibold text-mist-100">${escapeHtml(u.name)}</p>
+          <p class="text-[11px] text-mist-400">${escapeHtml(u.email)} · ${escapeHtml(u.phone||'')}</p>
+          <div class="flex gap-2 mt-2.5">
+            <button onclick="adminSetStatus('${d.id}','Approved')" class="flex-1 py-1.5 rounded-lg bg-emerald/15 text-emerald text-xs font-semibold">Approve</button>
+            <button onclick="adminSetStatus('${d.id}','Rejected')" class="flex-1 py-1.5 rounded-lg bg-white/[0.06] text-mist-300 text-xs font-semibold">Reject</button>
+            <button onclick="adminSetStatus('${d.id}','Banned')" class="flex-1 py-1.5 rounded-lg bg-red-400/10 text-red-400 text-xs font-semibold">Ban</button>
+          </div>
+        </div>`;
+      }).join('');
+    }));
+
+    adminUnsubs.push(onSnapshot(collection(db,'campaigns'), (snap)=>{
+      const list = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      const host = document.getElementById('adminCampaignsList');
+      host.innerHTML = list.length ? list.map(c=>`<div class="glass rounded-xl p-3.5">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-semibold text-mist-100">${escapeHtml(c.title)}</p>
+          <span class="text-[10px] px-2 py-0.5 rounded-full ${c.status==='active'?'bg-emerald/15 text-emerald':'bg-white/[0.06] text-mist-400'}">${c.status}</span>
+        </div>
+        <p class="text-[11px] text-mist-400 mt-1">${c.tokenPrice} tok · ${c.filledSlots||0}/${c.totalSlots} slots</p>
+        <div class="flex gap-2 mt-2.5">
+          <button onclick='editCampaign(${JSON.stringify(JSON.stringify(c))})' class="flex-1 py-1.5 rounded-lg bg-bolt/15 text-bolt text-xs font-semibold">Edit</button>
+          <button onclick="deleteCampaign('${c.id}')" class="flex-1 py-1.5 rounded-lg bg-red-400/10 text-red-400 text-xs font-semibold">Delete</button>
+        </div>
+      </div>`).join('') : '<p class="text-xs text-mist-500">No campaigns yet.</p>';
+
+      const sel = document.getElementById('drawCampaignSelect');
+      const active = list.filter(c=>c.status==='active');
+      sel.innerHTML = active.length ? active.map(c=>`<option value="${c.id}">${escapeHtml(c.title)} (${c.filledSlots||0}/${c.totalSlots})</option>`).join('') : '<option disabled selected>No active campaigns</option>';
+    }));
+  }
+
+  window.adminSetStatus = async (uid, status) => {
+    try {
+      await updateDoc(doc(db,'users',uid), { status });
+      toast(`User ${status.toLowerCase()}.`, 'success');
+    } catch { toast('Action failed.', 'error'); }
+  };
+
+  window.openCampaignForm = () => {
+    document.getElementById('campaignFormTitle').textContent = 'New campaign';
+    ['cfId','cfTitle','cfTokenPrice','cfSlots','cfDrawTime'].forEach(id=>document.getElementById(id).value='');
+    openModal('campaignFormModal');
+  };
+  window.editCampaign = (jsonStr) => {
+    const c = JSON.parse(jsonStr);
+    document.getElementById('campaignFormTitle').textContent = 'Edit campaign';
+    document.getElementById('cfId').value = c.id;
+    document.getElementById('cfTitle').value = c.title;
+    document.getElementById('cfTokenPrice').value = c.tokenPrice;
+    document.getElementById('cfSlots').value = c.totalSlots;
+    openModal('campaignFormModal');
+  };
+  window.saveCampaign = async () => {
+    const id = document.getElementById('cfId').value;
+    const title = document.getElementById('cfTitle').value.trim();
+    const tokenPrice = Number(document.getElementById('cfTokenPrice').value);
+    const totalSlots = Number(document.getElementById('cfSlots').value);
+    const drawTimeVal = document.getElementById('cfDrawTime').value;
+    if (!title || !tokenPrice || !totalSlots) { toast('Fill in every field.', 'error'); return; }
+    try {
+      if (id) {
+        await updateDoc(doc(db,'campaigns',id), { title, tokenPrice, totalSlots, ...(drawTimeVal?{drawTime:new Date(drawTimeVal)}:{}) });
+      } else {
+        await addDoc(collection(db,'campaigns'), {
+          title, tokenPrice, totalSlots, filledSlots: 0, status:'active',
+          drawTime: drawTimeVal ? new Date(drawTimeVal) : new Date(Date.now()+864e5),
+          createdAt: serverTimestamp()
+        });
+      }
+      closeModal('campaignFormModal');
+      toast('Campaign saved.', 'success');
+    } catch { toast('Could not save campaign.', 'error'); }
+  };
+  window.deleteCampaign = async (id) => {
+    try { await deleteDoc(doc(db,'campaigns',id)); toast('Campaign deleted.'); } catch { toast('Delete failed.', 'error'); }
+  };
+
+  // ---------------- LIVE DRAW ENGINE (CSPRNG) ----------------
+  window.runLiveDraw = async () => {
+    const sel = document.getElementById('drawCampaignSelect');
+    const campaignId = sel.value;
+    if (!campaignId) { toast('Choose a campaign first.', 'error'); return; }
+    const resultBox = document.getElementById('drawResult');
+    resultBox.classList.remove('hidden');
+    resultBox.innerHTML = '<p class="text-sm text-mist-300">Drawing…</p>';
+    try {
+      const ticketsSnap = await getDocsList(query(collection(db,'tickets'), where('campaignId','==', campaignId)));
+      if (!ticketsSnap.length) { resultBox.innerHTML = '<p class="text-sm text-red-400">No tickets entered yet.</p>'; return; }
+
+      // CSPRNG index pick
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      const idx = buf[0] % ticketsSnap.length;
+      const winningTicket = ticketsSnap[idx];
+
+      const userSnap = await getDoc(doc(db,'users', winningTicket.userId));
+      const campSnap = await getDoc(doc(db,'campaigns', campaignId));
+      const userName = userSnap.exists() ? userSnap.data().name : 'Unknown';
+      const campTitle = campSnap.exists() ? campSnap.data().title : 'Campaign';
+
+      await addDoc(collection(db,'winners'), {
+        campaignId, campaignTitle: campTitle, userId: winningTicket.userId,
+        userName, ticketNumber: winningTicket.ticketNumber, drawnAt: serverTimestamp()
+      });
+      await updateDoc(doc(db,'campaigns',campaignId), { status:'drawn' });
+
+      resultBox.innerHTML = `<p class="text-xs text-mist-400 uppercase tracking-widest font-semibold">Winner</p>
+        <p class="font-display font-bold text-lg text-gold mt-1">${escapeHtml(userName)}</p>
+        <p class="font-mono text-sm text-mist-300">Ticket ${winningTicket.ticketNumber}</p>`;
+      toast('Draw complete — broadcast live to everyone.', 'success');
+    } catch (e) {
+      resultBox.innerHTML = `<p class="text-sm text-red-400">${escapeHtml(e.message||'Draw failed.')}</p>`;
+    }
+  };
+
+  async function getDocsList(q) {
+    return new Promise((resolve, reject) => {
+      const unsub = onSnapshot(q, (snap)=>{ unsub(); resolve(snap.docs.map(d=>({ id:d.id, ...d.data() }))); }, reject);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+</script>
+</body>
+</html>
